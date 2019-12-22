@@ -24,12 +24,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import sys
+
 import copy
 import functools
 
 import tensorflow as tf
 from tensorflow.contrib import layers as contrib_layers
 from tensorflow.contrib import slim as contrib_slim
+
+sys.path.append("./mobilenet")
 
 import conv_blocks as ops
 import mobilenet as lib
