@@ -18,6 +18,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 import collections
+from collections import OrderedDict
 import contextlib
 import copy
 import os
@@ -244,7 +245,7 @@ def mobilenet_base(  # pylint: disable=invalid-name
     net = inputs
     # Insert default parameters before the base scope which includes
     # any custom overrides set in mobilenet.
-    end_points = {}
+    end_points = OrderedDict()
     scopes = {}
     for i, opdef in enumerate(conv_defs['spec']):
       params = dict(opdef.params)
@@ -286,7 +287,6 @@ def mobilenet_base(  # pylint: disable=invalid-name
       except Exception:
         print('Failed to create op %i: %r params: %r' % (i, opdef, params))
         raise
-      end_points[end_point] = net
       scope = os.path.dirname(net.name)
       scopes[scope] = end_point
       if final_endpoint is not None and end_point == final_endpoint:
