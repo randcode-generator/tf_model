@@ -3,6 +3,8 @@ import sys
 import os
 from tensorflow.contrib import slim as contrib_slim
 from imagenet_label import labels
+from collections import OrderedDict 
+from tensorflow.python.framework import ops
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -101,12 +103,14 @@ def inception_v1_base(inputs,
   Raises:
     ValueError: if final_endpoint is not set to one of the predefined values.
   """
-  end_points = {}
+  end_points = OrderedDict()
   with tf.variable_scope(scope, 'InceptionV1', [inputs]):
     with slim.arg_scope(
         [slim.conv2d, slim.fully_connected],
+        outputs_collections="InceptionV1_endpoints",
         weights_initializer=trunc_normal(0.01)):
       with slim.arg_scope([slim.conv2d, slim.max_pool2d],
+                          outputs_collections="InceptionV1_endpoints",
                           stride=1, padding='SAME'):
         net = inputs
         if include_root_block:
@@ -281,7 +285,7 @@ def inception_v1_base(inputs,
             branch_1 = slim.conv2d(branch_1, 320, [3, 3], scope='Conv2d_0b_3x3')
           with tf.variable_scope('Branch_2'):
             branch_2 = slim.conv2d(net, 32, [1, 1], scope='Conv2d_0a_1x1')
-            branch_2 = slim.conv2d(branch_2, 128, [3, 3], scope='Conv2d_0a_3x3')
+            branch_2 = slim.conv2d(branch_2, 128, [3, 3], scope='Conv2d_0b_3x3')
           with tf.variable_scope('Branch_3'):
             branch_3 = slim.max_pool2d(net, [3, 3], scope='MaxPool_0a_3x3')
             branch_3 = slim.conv2d(branch_3, 128, [1, 1], scope='Conv2d_0b_1x1')
@@ -422,11 +426,12 @@ def default_functionality():
 def architecture():
   image = tf.random.uniform([1, height, width, 3])
   with slim.arg_scope(inception_arg_scope()):
-    _, endpoints = inception_v1(image, num_classes=1000, is_training=False)
+    _, _ = inception_v1(image, num_classes=1000, is_training=False)
 
-  print('{:30s} {:s}'.format("Input Layer", str(image.shape)))
+  endpoints = slim.utils.convert_collection_to_dict("InceptionV1_endpoints")
+  print('{:67s} {:s}'.format("Input Layer", str(image.shape)))
   for x in endpoints:
-    print('{:30s} {:s}'.format(str(endpoints[x].name), str(endpoints[x].shape)))
+    print('{:67s} {:s}'.format(str(endpoints[x].name), str(endpoints[x].shape)))
 
 argLen = len(sys.argv)
 
