@@ -27,3 +27,9 @@ After running one of the following model, run
 2. Unzip file and put the all the files in the same directory. If you choose to place it in another directory, be sure to update the `checkpoints_dir` variable
 3. Run `python mobilenet_v2_run.py`
 4. (Optional) Run `python mobilenet_v2_run.py arch` to view Mobilenet architecture
+
+### Inception
+1. Download Inception v1 model from [http://download.tensorflow.org/models/inception_v1_2016_08_28.tar.gz](http://download.tensorflow.org/models/inception_v1_2016_08_28.tar.gz)
+2. Unzip file and put the file 'inception_v1.ckpt' in the same directory. If you choose to place it in another directory, be sure to update the `checkpoints_dir` variable
+3. Run `python inceptionv1_run.py`
+4. (Optional) Run `python inceptionv1_run.py arch` to view Inception v1 architecture

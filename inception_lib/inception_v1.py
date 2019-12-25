@@ -64,8 +64,10 @@ def inception_v1_base(inputs,
   with tf.variable_scope(scope, 'InceptionV1', [inputs]):
     with slim.arg_scope(
         [slim.conv2d, slim.fully_connected],
+        outputs_collections="InceptionV1_endpoints",
         weights_initializer=trunc_normal(0.01)):
       with slim.arg_scope([slim.conv2d, slim.max_pool2d],
+                          outputs_collections="InceptionV1_endpoints",
                           stride=1, padding='SAME'):
         net = inputs
         if include_root_block:
