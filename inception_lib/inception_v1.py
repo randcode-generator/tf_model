@@ -1,76 +1,33 @@
-import tensorflow as tf
+# Copyright 2016 The TensorFlow Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+"""Contains the definition for inception v1 classification network."""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import sys
-import os
+import tensorflow as tf
 from tensorflow.contrib import slim as contrib_slim
-from imagenet_label import labels
-from collections import OrderedDict 
-from tensorflow.python.framework import ops
 
-import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
-
-height = 224
-width = 224
+sys.path.append("./inception_lib")
+import inception_utils
 
 slim = contrib_slim
 trunc_normal = lambda stddev: tf.truncated_normal_initializer(0.0, stddev)
 
-# Put inception_v1.ckpt in the same directory
-# Or change the 'checkpoints_dir' to where 'inception_v1.ckpt' is located
-checkpoints_dir = os.getcwd()
-
-def inception_arg_scope(weight_decay=0.00004,
-                        use_batch_norm=True,
-                        batch_norm_decay=0.9997,
-                        batch_norm_epsilon=0.001,
-                        activation_fn=tf.nn.relu,
-                        batch_norm_updates_collections=tf.GraphKeys.UPDATE_OPS,
-                        batch_norm_scale=False):
-  """Defines the default arg scope for inception models.
-
-  Args:
-    weight_decay: The weight decay to use for regularizing the model.
-    use_batch_norm: "If `True`, batch_norm is applied after each convolution.
-    batch_norm_decay: Decay for batch norm moving average.
-    batch_norm_epsilon: Small float added to variance to avoid dividing by zero
-      in batch norm.
-    activation_fn: Activation function for conv2d.
-    batch_norm_updates_collections: Collection for the update ops for
-      batch norm.
-    batch_norm_scale: If True, uses an explicit `gamma` multiplier to scale the
-      activations in the batch normalization layer.
-
-  Returns:
-    An `arg_scope` to use for the inception models.
-  """
-  batch_norm_params = {
-      # Decay for the moving averages.
-      'decay': batch_norm_decay,
-      # epsilon to prevent 0s in variance.
-      'epsilon': batch_norm_epsilon,
-      # collection containing update_ops.
-      'updates_collections': batch_norm_updates_collections,
-      # use fused batch norm if possible.
-      'fused': None,
-      'scale': batch_norm_scale,
-  }
-  if use_batch_norm:
-    normalizer_fn = slim.batch_norm
-    normalizer_params = batch_norm_params
-  else:
-    normalizer_fn = None
-    normalizer_params = {}
-  # Set weight_decay for weights in Conv and FC layers.
-  with slim.arg_scope([slim.conv2d, slim.fully_connected],
-                      weights_regularizer=slim.l2_regularizer(weight_decay)):
-    with slim.arg_scope(
-        [slim.conv2d],
-        weights_initializer=slim.variance_scaling_initializer(),
-        activation_fn=activation_fn,
-        normalizer_fn=normalizer_fn,
-        normalizer_params=normalizer_params) as sc:
-      return sc
 
 def inception_v1_base(inputs,
                       final_endpoint='Mixed_5c',
@@ -103,14 +60,12 @@ def inception_v1_base(inputs,
   Raises:
     ValueError: if final_endpoint is not set to one of the predefined values.
   """
-  end_points = OrderedDict()
+  end_points = {}
   with tf.variable_scope(scope, 'InceptionV1', [inputs]):
     with slim.arg_scope(
         [slim.conv2d, slim.fully_connected],
-        outputs_collections="InceptionV1_endpoints",
         weights_initializer=trunc_normal(0.01)):
       with slim.arg_scope([slim.conv2d, slim.max_pool2d],
-                          outputs_collections="InceptionV1_endpoints",
                           stride=1, padding='SAME'):
         net = inputs
         if include_root_block:
@@ -285,7 +240,7 @@ def inception_v1_base(inputs,
             branch_1 = slim.conv2d(branch_1, 320, [3, 3], scope='Conv2d_0b_3x3')
           with tf.variable_scope('Branch_2'):
             branch_2 = slim.conv2d(net, 32, [1, 1], scope='Conv2d_0a_1x1')
-            branch_2 = slim.conv2d(branch_2, 128, [3, 3], scope='Conv2d_0b_3x3')
+            branch_2 = slim.conv2d(branch_2, 128, [3, 3], scope='Conv2d_0a_3x3')
           with tf.variable_scope('Branch_3'):
             branch_3 = slim.max_pool2d(net, [3, 3], scope='MaxPool_0a_3x3')
             branch_3 = slim.conv2d(branch_3, 128, [1, 1], scope='Conv2d_0b_1x1')
@@ -312,6 +267,7 @@ def inception_v1_base(inputs,
         end_points[end_point] = net
         if final_endpoint == end_point: return net, end_points
     raise ValueError('Unknown final endpoint %s' % final_endpoint)
+
 
 def inception_v1(inputs,
                  num_classes=1000,
@@ -383,59 +339,6 @@ def inception_v1(inputs,
         end_points['Logits'] = logits
         end_points['Predictions'] = prediction_fn(logits, scope='Predictions')
   return logits, end_points
+inception_v1.default_image_size = 224
 
-def default_functionality():
-  with tf.Graph().as_default():
-    file = tf.read_file('schoolbus.jpg')
-
-    image = tf.image.decode_jpeg(file, channels=3)
-    if image.dtype != tf.float32:
-      image = tf.image.convert_image_dtype(image, dtype=tf.float32)
-
-    # resize start
-    image = tf.expand_dims(image, 0)
-    image = tf.image.resize_bilinear(image, [height, width], align_corners=False)
-    image = tf.squeeze(image)
-    # resize end
-
-    image = tf.subtract(image, 0.5)
-    image = tf.multiply(image, 2.0)
-
-    image  = tf.expand_dims(image, 0)
-    with slim.arg_scope(inception_arg_scope()):
-      logits, _ = inception_v1(image, num_classes=1001, is_training=False)
-    probabilities = tf.nn.softmax(logits)
-
-    init_fn = slim.assign_from_checkpoint_fn(
-      os.path.join(checkpoints_dir, 'inception_v1.ckpt'),
-      slim.get_model_variables('InceptionV1'))
-
-    with tf.Session() as sess:
-      init_fn(sess)
-      tf.summary.FileWriter('./graphs', sess.graph)
-      probabilities = sess.run(probabilities)
-      probabilities = probabilities[0, 0:]
-      sorted_inds = [i[0] for i in sorted(enumerate(-probabilities), key=lambda x:x[1])]
-      names = labels.create_readable_names_for_imagenet_labels()
-      
-      for i in range(5):
-        index = sorted_inds[i]
-        # Shift the index of a class name by one. 
-        print('Probability %0.2f%% => [%s]' % (probabilities[index] * 100, names[index]))
-
-def architecture():
-  image = tf.random.uniform([1, height, width, 3])
-  with slim.arg_scope(inception_arg_scope()):
-    _, _ = inception_v1(image, num_classes=1000, is_training=False)
-
-  endpoints = slim.utils.convert_collection_to_dict("InceptionV1_endpoints")
-  print('{:67s} {:s}'.format("Input Layer", str(image.shape)))
-  for x in endpoints:
-    print('{:67s} {:s}'.format(str(endpoints[x].name), str(endpoints[x].shape)))
-
-argLen = len(sys.argv)
-
-if(argLen == 2 and sys.argv[1] == "arch"):
-  architecture()
-else:
-  default_functionality()
+inception_v1_arg_scope = inception_utils.inception_arg_scope
